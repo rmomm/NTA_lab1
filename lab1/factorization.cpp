@@ -1,5 +1,7 @@
-﻿#include "factorization.h"
+﻿#include <iostream>
+#include "factorization.h"
 #include "primality.h"
+using namespace std;
 
 uint64_t trialDivision(uint64_t n) {
 
@@ -44,10 +46,10 @@ uint64_t pollardRho(uint64_t n) {
     return d;
 }
 
-int legendreSymbol(uint64_t a, uint64_t p) {
+int legendre(uint64_t a, uint64_t p) {
     uint64_t ls = pow_mod(a, (p - 1) / 2, p);
-    if (ls == p - 1) { 
-        return -1; 
+    if (ls == p - 1) {
+        return -1;
     }
     return (int)ls;
 }
@@ -58,12 +60,12 @@ vector<uint64_t> buildFactorBase(uint64_t n, uint64_t bound) {
     for (uint64_t p = 3; p <= bound; p += 2) {
         bool prime = true;
         for (uint64_t d = 3; d * d <= p; d += 2) {
-            if (p % d == 0) { 
-                prime = false; 
-                break; 
+            if (p % d == 0) {
+                prime = false;
+                break;
             }
         }
-        if (prime && legendreSymbol(n, p) == 1) {
+        if (prime && legendre(n, p) == 1) {
             base.push_back(p);
         }
     }
@@ -88,21 +90,21 @@ vector<int> gaussianEliminationF2(vector<vector<int>>& matrix) {
 
 
     vector<vector<int>> comb(rows, vector<int>(rows, 0));
-    for (int i = 0; i < rows; i++) { 
-        comb[i][i] = 1; 
+    for (int i = 0; i < rows; i++) {
+        comb[i][i] = 1;
     }
 
     int r = 0;
     for (int c = 0; c < cols && r < rows; c++) {
         int pivot = -1;
         for (int i = r; i < rows; i++) {
-            if (matrix[i][c]) { 
-                pivot = i; 
-                break; 
+            if (matrix[i][c]) {
+                pivot = i;
+                break;
             }
         }
-        if (pivot == -1) { 
-            continue; 
+        if (pivot == -1) {
+            continue;
         }
 
 
@@ -127,17 +129,17 @@ vector<int> gaussianEliminationF2(vector<vector<int>>& matrix) {
     for (int i = 0; i < rows; i++) {
         bool zero = true;
         for (int j = 0; j < cols; j++) {
-            if (matrix[i][j]) { 
-                zero = false; 
-                break; 
+            if (matrix[i][j]) {
+                zero = false;
+                break;
             }
         }
         if (zero) {
 
             vector<int> dep;
             for (int j = 0; j < rows; j++) {
-                if (comb[i][j]) { 
-                    dep.push_back(j); 
+                if (comb[i][j]) {
+                    dep.push_back(j);
                 }
             }
             return dep;
@@ -154,20 +156,48 @@ uint64_t brillhartMorrison(uint64_t n) {
     vector<vector<int>> exponents;
     vector<uint64_t> bValues;
 
-    for (uint64_t b = (uint64_t)sqrt(n); b < sqrt(n) + 200000; b++) {
-        uint64_t val = (b * b) % n;
+    uint64_t sqrt_n = (uint64_t)sqrt((double)n);
+    if (sqrt_n * sqrt_n == n) { 
+        return sqrt_n;
+    }
+
+    uint64_t v = 1;
+    uint64_t u = sqrt_n;
+    uint64_t a = sqrt_n;
+
+    uint64_t b_pr = 1;
+    uint64_t b = a % n;
+
+    for (size_t step = 1; step < 1000000; step++) {
+        uint64_t v_next = (n - u * u) / v;
+        if (v_next == 0) { 
+            break; 
+        }
+
+        int64_t Q_i = (step % 2 == 1) ? -(int64_t)v_next : (int64_t)v_next;
+
         vector<int> exps;
-        if (factorOverBase(val, base, exps)) {
+        if (factorOverBase((uint64_t)llabs(Q_i), base, exps)) {
             matrix.push_back(vector<int>(exps.size()));
-            for (size_t j = 0; j < exps.size(); j++) { 
-                matrix.back()[j] = exps[j] % 2; 
+            for (size_t j = 0; j < exps.size(); j++) {
+                matrix.back()[j] = exps[j] % 2;
             }
             exponents.push_back(exps);
             bValues.push_back(b);
-            if (matrix.size() >= base.size() + 50) {
+            if (matrix.size() >= base.size() + 50) { 
                 break; 
             }
         }
+
+        uint64_t a_next = (sqrt_n + u) / v_next;
+        uint64_t u_next = a_next * v_next - u;
+        uint64_t b_next = (mul_mod(a_next, b, n) + b_pr) % n;
+
+        v = v_next;
+        u = u_next;
+        a = a_next;
+        b_pr = b;
+        b = b_next;
     }
 
     if (matrix.empty()) { 
@@ -194,7 +224,7 @@ uint64_t brillhartMorrison(uint64_t n) {
         uint64_t g = gcd((x + y) % n, n);
         if (g != 1 && g != n) { 
             return g; 
-        } 
+        }
         g = gcd((x + n - y) % n, n);
         if (g != 1 && g != n) { 
             return g; 
@@ -205,30 +235,32 @@ uint64_t brillhartMorrison(uint64_t n) {
 }
 
 
-void factor(uint64_t n, vector<uint64_t>&factors) {
-     if (n == 1) return;
 
-        if (isPrime(n, 5)) {
-            factors.push_back(n);
-            return;
-        }
 
-        uint64_t d = trialDivision(n);
+void factor(uint64_t n, vector<uint64_t>& factors) {
+    if (n == 1) return;
 
-        if (d == 0) {
-            d = pollardRho(n);
-        }
-        if (d == 0) {
-            d = brillhartMorrison(n);
-        }
+    if (isPrime(n, 5)) {
+        factors.push_back(n);
+        return;
+    }
 
-        if (d == 0 || d == n) {
-            factors.push_back(n);
-            return;
-        }
+    uint64_t d = trialDivision(n);
 
-        factor(d, factors);
-        factor(n / d, factors);
+    if (d == 0) {
+        d = pollardRho(n);
+    }
+    if (d == 0) {
+        d = brillhartMorrison(n);
+    }
+
+    if (d == 0 || d == n) {
+        factors.push_back(n);
+        return;
+    }
+
+    factor(d, factors);
+    factor(n / d, factors);
 }
 
 void printCanonical(uint64_t n, vector<uint64_t>& factors) {
